@@ -73,6 +73,26 @@ app.post("/messages", async (req, res) => {
     }
 })
 
+app.post("/status", async (req, res) => {
+    const participant = req.headers.user;
+
+    if (!participant) return res.sendStatus(404);
+
+    try {
+        const participantOn = await db.collection("participants").findOne({ name: participant });
+        if (!participantOn) {
+            return res.sendStatus(404);
+        } else {
+            const lastStatus = Date.now();
+            const editedParticipant = { name: participant, lastStatus: lastStatus };
+            await db.collection("participants").updateOne({ name: participant }, { $set: editedParticipant });
+            res.sendStatus(200);
+        }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+})
+
 // app.delete("/participants/:id", async (req, res) => {
 //     const { id } = req.params;
 //     try {
