@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from 'dayjs';
 
@@ -16,7 +16,7 @@ mongoClient.connect()
     .catch((err) => console.log(err.message));
 
 
-app.post("/participants", (req, res) => {
+app.post("/participants", async (req, res) => {
     const { name } = req.body;
 
     if (!name || typeof (name) !== "string") {
@@ -27,22 +27,41 @@ app.post("/participants", (req, res) => {
     const time = dayjs(lastStatus).format("HH:mm:ss");
     const newMessage = { from: name, to: "Todos", text: "entra na sala...", type: "status", time: time }
 
-    db.collection("participants").findOne({ name: name })
-        .then((data) => {
-            if (data) {
-                return res.sendStatus(409);
-            } else {
-                db.collection("participants").insertOne(newParticipant)
-                    .then(() => {
-                        db.collection("messages").insertOne(newMessage)
-                            .then(res.sendStatus(201))
-                            .catch(err => res.status(500).send(err.message))
-                    })
-                    .catch(err => res.status(500).send(err.message))
-            }
-        })
-        .catch(err => res.status(500).send(err.message))
+    try {
+        const participant = await db.collection("participants").findOne({ name: name });
+        if (participant) {
+            return res.sendStatus(409);
+        } else {
+            await db.collection("participants").insertOne(newParticipant);
+            await db.collection("messages").insertOne(newMessage);
+            res.sendStatus(201);
+        }
+
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 })
+
+app.get("/participants", async (req, res) => {
+
+    try {
+        const participants = await db.collection("participants").find().toArray();
+        res.send(participants);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+})
+
+// app.delete("/participants/:id", async (req, res) => {
+//     const { id } = req.params;
+//     try {
+//         await db.collection("participants").deleteOne({ _id: new ObjectId(id) })
+//         res.status(200).send("Usuário deletado com sucesso")
+//     } catch (err) {
+//         res.status(500).send(err.message);
+//     }
+// })
+
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
