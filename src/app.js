@@ -52,6 +52,27 @@ app.get("/participants", async (req, res) => {
     }
 })
 
+app.post("/messages", async (req, res) => {
+    const { to, text, type } = req.body;
+    const from = req.headers.user;
+
+    if (!to || !text || (type !== "message" && type !== "private_message") || !from) return res.sendStatus(422);
+
+    try {
+        const participant = await db.collection("participants").findOne({ name: from });
+        if (!participant) {
+            return res.sendStatus(422);
+        } else {
+            const time = dayjs(Date.now()).format("HH:mm:ss");
+            const newMessage = { from, to, text, type, time }
+            await db.collection("messages").insertOne(newMessage);
+            res.sendStatus(201);
+        }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+})
+
 // app.delete("/participants/:id", async (req, res) => {
 //     const { id } = req.params;
 //     try {
