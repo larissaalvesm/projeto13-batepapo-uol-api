@@ -82,7 +82,7 @@ app.get("/messages", async (req, res) => {
     const messages = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: participant }, { from: participant }] }).toArray();
 
     try {
-        if (limit <= 0) {
+        if (limit <= 0 || typeof limit === "string") {
             return res.sendStatus(422);
         } else if (limit > 0) {
             const lastMessages = messages.slice(-limit);
@@ -124,6 +124,24 @@ app.post("/status", async (req, res) => {
 //     }
 // })
 
+setInterval(async () => {
+    const timeToDelete = Date.now() - 10000;
+    const participantsToDelete = await db.collection("participants").find({ lastStatus: { $lt: timeToDelete } }).toArray();
 
+    participantsToDelete.map(async (p) => {
+        const time = dayjs(Date.now()).format("HH:mm:ss");
+        const exitMessage = {
+            from: p.name,
+            to: 'Todos',
+            text: 'sai da sala...',
+            type: 'status',
+            time
+        };
+        await db.collection("messages").insertOne(exitMessage);
+        await db.collection("participants").deleteOne({ name: p.name });
+    })
+
+
+}, 15000)
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
