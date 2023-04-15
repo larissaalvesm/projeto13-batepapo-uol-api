@@ -3,6 +3,7 @@ import cors from 'cors';
 import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from 'dayjs';
+import joi from "joi";
 
 const app = express();
 app.use(cors());
@@ -56,7 +57,9 @@ app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body;
     const from = req.headers.user;
 
-    if (!to || !text || (type !== "message" && type !== "private_message") || !from) return res.sendStatus(422);
+    if (!to || !text || (type !== "message" && type !== "private_message") || !from) {
+        return res.sendStatus(422);
+    }
 
     try {
         const participant = await db.collection("participants").findOne({ name: from });
@@ -68,6 +71,24 @@ app.post("/messages", async (req, res) => {
             await db.collection("messages").insertOne(newMessage);
             res.sendStatus(201);
         }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+})
+
+app.get("/messages", async (req, res) => {
+    const participant = req.headers.user;
+    const limit = Number(req.query.limit);
+    const messages = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: participant }, { from: participant }] }).toArray();
+
+    try {
+        if (limit <= 0) {
+            return res.sendStatus(422);
+        } else if (limit > 0) {
+            const lastMessages = messages.slice(-limit);
+            return res.send(lastMessages);
+        }
+        res.send(messages);
     } catch (err) {
         res.status(500).send(err.message);
     }
