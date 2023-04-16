@@ -101,17 +101,19 @@ app.post("/messages", async (req, res) => {
 
 app.get("/messages", async (req, res) => {
     const participant = req.headers.user;
-    const limit = Number(req.query.limit);
+    const limit = req.query.limit;
+    const numberLimit = Number(limit);
 
     try {
         const messages = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: participant }, { from: participant }] }).toArray();
-        if (limit <= 0 || limit === NaN) {
+        if (!limit) {
+            return res.send(messages);
+        } else if (numberLimit <= 0 || isNaN(numberLimit) === true) {
             return res.sendStatus(422);
         } else if (limit > 0) {
             const lastMessages = messages.slice(-limit);
             return res.send(lastMessages);
         }
-        res.send(messages);
     } catch (err) {
         res.status(500).send(err.message);
     }
@@ -137,23 +139,23 @@ app.post("/status", async (req, res) => {
     }
 })
 
-// setInterval(async () => {
-//     const timeToDelete = Date.now() - 10000;
-//     const participantsToDelete = await db.collection("participants").find({ lastStatus: { $lt: timeToDelete } }).toArray();
+setInterval(async () => {
+    const timeToDelete = Date.now() - 10000;
+    const participantsToDelete = await db.collection("participants").find({ lastStatus: { $lt: timeToDelete } }).toArray();
 
-//     participantsToDelete.map(async (p) => {
-//         const time = dayjs(Date.now()).format("HH:mm:ss");
-//         const exitMessage = {
-//             from: p.name,
-//             to: 'Todos',
-//             text: 'sai da sala...',
-//             type: 'status',
-//             time
-//         };
-//         await db.collection("messages").insertOne(exitMessage);
-//         await db.collection("participants").deleteOne({ name: p.name });
-//     })
-// }, 15000)
+    participantsToDelete.map(async (p) => {
+        const time = dayjs(Date.now()).format("HH:mm:ss");
+        const exitMessage = {
+            from: p.name,
+            to: 'Todos',
+            text: 'sai da sala...',
+            type: 'status',
+            time
+        };
+        await db.collection("messages").insertOne(exitMessage);
+        await db.collection("participants").deleteOne({ name: p.name });
+    })
+}, 15000)
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
