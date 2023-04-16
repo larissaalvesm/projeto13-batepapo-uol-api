@@ -27,8 +27,11 @@ app.post("/participants", async (req, res) => {
     const participantSchema = joi.object({
         name: joi.string().required()
     })
-    const validation = participantSchema.validate(name, { abortEarly: false });
-    if (validation.error) return res.sendStatus(422);
+    const validation = participantSchema.validate({ name }, { abortEarly: false });
+    if (validation.error) {
+        const errors = validation.error.details.map((detail) => detail.message);
+        return res.status(422).send(errors);
+    }
 
     const lastStatus = Date.now();
     const newParticipant = { name, lastStatus };
