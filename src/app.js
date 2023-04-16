@@ -20,9 +20,16 @@ mongoClient.connect()
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
 
-    if (!name || typeof (name) !== "string") {
-        return res.sendStatus(422);
-    }
+    // if (!name || typeof (name) !== "string") {
+    //     return res.sendStatus(422);
+    // }
+
+    const participantSchema = joi.object({
+        name: joi.string().required()
+    })
+    const validation = participantSchema.validate(name, { abortEarly: false });
+    if (validation.error) return res.sendStatus(422);
+
     const lastStatus = Date.now();
     const newParticipant = { name, lastStatus };
     const time = dayjs(lastStatus).format("HH:mm:ss");
@@ -57,9 +64,18 @@ app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body;
     const from = req.headers.user;
 
-    if (!to || !text || (type !== "message" && type !== "private_message") || !from) {
-        return res.sendStatus(422);
-    }
+    const messageSchema = joi.object({
+        to: joi.string().required(),
+        text: joi.string().required(),
+        type: joi.string().only("message", "private_message").required(),
+        from: joi.required()
+    });
+    const validation = messageSchema.validate({ to, text, type, from }, { abortEarly: false });
+    if (validation.error) return res.sendStatus(422);
+
+    // if (!to || !text || (type !== "message" && type !== "private_message") || !from) {
+    //     return res.sendStatus(422);
+    // }
 
     try {
         const participant = await db.collection("participants").findOne({ name: from });
@@ -79,10 +95,10 @@ app.post("/messages", async (req, res) => {
 app.get("/messages", async (req, res) => {
     const participant = req.headers.user;
     const limit = Number(req.query.limit);
-    const messages = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: participant }, { from: participant }] }).toArray();
 
     try {
-        if (limit <= 0 || typeof limit === "string") {
+        const messages = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: participant }, { from: participant }] }).toArray();
+        if (limit <= 0 || limit === NaN) {
             return res.sendStatus(422);
         } else if (limit > 0) {
             const lastMessages = messages.slice(-limit);
@@ -114,16 +130,6 @@ app.post("/status", async (req, res) => {
     }
 })
 
-// app.delete("/participants/:id", async (req, res) => {
-//     const { id } = req.params;
-//     try {
-//         await db.collection("participants").deleteOne({ _id: new ObjectId(id) })
-//         res.status(200).send("Usuário deletado com sucesso")
-//     } catch (err) {
-//         res.status(500).send(err.message);
-//     }
-// })
-
 setInterval(async () => {
     const timeToDelete = Date.now() - 10000;
     const participantsToDelete = await db.collection("participants").find({ lastStatus: { $lt: timeToDelete } }).toArray();
@@ -140,8 +146,7 @@ setInterval(async () => {
         await db.collection("messages").insertOne(exitMessage);
         await db.collection("participants").deleteOne({ name: p.name });
     })
-
-
 }, 15000)
+
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
