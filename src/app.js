@@ -66,15 +66,19 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body;
     const from = req.headers.user;
-
     const messageSchema = joi.object({
         to: joi.string().required(),
         text: joi.string().required(),
-        type: joi.string().only("message", "private_message").required(),
+        type: joi.string().valid("message", "private_message").required(),
+    });
+    const validationMessage = messageSchema.validate({ to, text, type }, { abortEarly: false });
+    const fromSchema = joi.object({
         from: joi.required()
     });
-    const validation = messageSchema.validate({ to, text, type, from }, { abortEarly: false });
-    if (validation.error) return res.sendStatus(422);
+    const validationFrom = fromSchema.validate({ from }, { abortEarly: false });
+    if (validationMessage.error || validationFrom.error) {
+        return res.sendStatus(422);
+    }
 
     // if (!to || !text || (type !== "message" && type !== "private_message") || !from) {
     //     return res.sendStatus(422);
@@ -133,23 +137,23 @@ app.post("/status", async (req, res) => {
     }
 })
 
-setInterval(async () => {
-    const timeToDelete = Date.now() - 10000;
-    const participantsToDelete = await db.collection("participants").find({ lastStatus: { $lt: timeToDelete } }).toArray();
+// setInterval(async () => {
+//     const timeToDelete = Date.now() - 10000;
+//     const participantsToDelete = await db.collection("participants").find({ lastStatus: { $lt: timeToDelete } }).toArray();
 
-    participantsToDelete.map(async (p) => {
-        const time = dayjs(Date.now()).format("HH:mm:ss");
-        const exitMessage = {
-            from: p.name,
-            to: 'Todos',
-            text: 'sai da sala...',
-            type: 'status',
-            time
-        };
-        await db.collection("messages").insertOne(exitMessage);
-        await db.collection("participants").deleteOne({ name: p.name });
-    })
-}, 15000)
+//     participantsToDelete.map(async (p) => {
+//         const time = dayjs(Date.now()).format("HH:mm:ss");
+//         const exitMessage = {
+//             from: p.name,
+//             to: 'Todos',
+//             text: 'sai da sala...',
+//             type: 'status',
+//             time
+//         };
+//         await db.collection("messages").insertOne(exitMessage);
+//         await db.collection("participants").deleteOne({ name: p.name });
+//     })
+// }, 15000)
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
